@@ -5,6 +5,7 @@ Documentation in english can be found [there.](README.md)
 2. [Instalacja](#instalacja)
 3. [Przykładowe użycie](#przykładowe-użycie)
 4. [Spis funkcji](#spis-funkcji)
+5. [Threading](#threading)
 # Wstęp
 API do e-dziennika librus synergia.
 Nie ma gwarancji na to, że API będzie rozwijane!
@@ -14,27 +15,21 @@ Nie ma gwarancji na to, że API będzie rozwijane!
 ```python
 from py_librus_api import Librus
 
-
 librus = Librus()
+librus.login(username, password)
 
-"""Zapętla się dopóki użytkownik nie zaloguje się"""
-while not librus.logged_in:
-    if not librus.login(login, password):
-        print("Logowanie nie powiodło się! Sprawdź twój nick i/lub hasło.")
-    else:
-        print("Zalogowano.")
-
+print(librus.get_lucky_number())
 ```
 # Spis funkcji
 **Wymagane parametry/funkcje zaznaczone są prefixem `!`**<br>
 **Jeżeli przy nazwie jest `*` oznacza to, że poniżej będzie wyjaśnienie jakiejś rzeczy**
 ## !login(!login, !password)
 Funkcja zwraca true gdy logowanie powiodło się i false gdy nie.<br>
-`login` - Zmienna string z loginem użytkownika.<br>
+`username` - Zmienna string z loginem użytkownika.<br>
 `password` - Zmienna string z hasłem użytkownika.<br>
 Przykładowe użycie:
 ```python
-librus.login(login_var, password_var)
+!librus.login(!username, !password)
 ```
 ## Możesz sprawdzić czy użytkownik jest zalogowany!
 ```python
@@ -139,3 +134,46 @@ Zwraca listę obecności, nieobecności itp. w tym formacie:
   ...
 ]
 ```
+# Threading
+W wersji 0.4 została dodana wielowątkowość w celu usprawnienia działania programu, poprzez pobieranie wielu danych jednocześnie. Możesz jeszcze bardziej przyspieszyć program używając `threading` samodzielnie.<br>
+**Uwaga: Prędkość programu zależy głównie od prędkości internetu użytkownika!**
+### Przykład
+```python
+from py_librus_api import Librus
+from threading import Thread # <-- Zauważ, że tutaj jest nowy import!
+
+# Logowanie tak jak zawsze
+librus = Librus()
+librus.login(username, password)
+
+threads = []
+
+# Get lucky number
+a = Thread(target=librus.get_lucky_number)
+a.start()
+threads.append(a)
+
+# Get grades
+b = Thread(target=librus.get_grades)
+b.start()
+threads.append(b)
+
+for thread in threads:
+    thread.join()
+```
+### Porównanie
+Porównałem powyższy kod (+2 inne funkcje) z normalnym wywołwaniem bez `threading`.<br>
+**Uwaga: Czas logowania nie jest uwzględniony.**<br>
+**Uwaga 2: Czas mierzony jest w sekundach [s].**
+#### API przed i po aktualizacji threading
+```
+[PRZED AKTUALIZACJĄ]: 6.034927606582642
+[PO AKTUALIZACJI]: 4.9559431076049805
+```
+Jak możesz zauważyć, poprawa nie jest znaczna, ale jednak jakaś jest.
+#### API po aktualizacji threading vs jeszcze bardziej zoptymalizowany kod (przykład jest powyżej)
+```
+[PO AKTUALIZACJI]: 4.9559431076049805
+[PO AKTUALIZACJI + JESZCZE WIĘKSZA OPTIMALIZACJA (ta z przykładu)]: 1.9219775199890137
+```
+Jest to największa poprawa wydajności jaką można na razie uzyskać. Jeżeli zależy ci na szybkim programie, samodzielnie używaj `threading` oraz najnowszej wersji API.

@@ -5,6 +5,7 @@ Dokumentacja w języku polskim jest [tutaj.](README_pl.md)
 2. [Instalation](#instalation)
 3. [Exmaple usage](#example-usage)
 4. [Functions](#functions)
+5. [Threading](#threading)
 # Intro
 API for librus e-register.<br>
 There is no guarantee of developing this API further more!
@@ -14,29 +15,22 @@ There is no guarantee of developing this API further more!
 ```python
 from py_librus_api import Librus
 
-
 librus = Librus()
+librus.login(username, password)
 
-"""Loops until user logs in successfully"""
-while not librus.logged_in:
-    if not librus.login(login, password):
-        print("Log in failed! Check your username and/or password!")
-    else:
-        print("Logged in successfully!")
-
-# Your code goes here
+print(librus.get_lucky_number())
 ```
 More info in [functions](#functions)
 # Functions
 **Required params/functions are marked with `!` prefix.**<br>
 **`*` means that there is explanation below or something is optional.**
-## !login(!login, !password)
+## !login(!username, !password)
 Function returns `true` if logging in was successful and `false` when not.<br>
-`login` - Variable that contains user login. <br>
+`username` - Variable that contains user login. <br>
 `password` - Variable that contains user password.<br>
 Example usage:
 ```python
-librus.login(login_var, password_var)
+librus.login(username, password)
 ```
 ## You can check if user is logged in!
 ```python
@@ -145,3 +139,46 @@ Returns attendances in this format:
  ...
 ]
 ```
+# Threading
+In version 0.4 threading was added to improve performance of API by downloading multiple data at the same time. You can improve it even more by running functions using `threading` by yourself.<br>
+**Note: Speed of the API mostly depends on user's internet speed!**
+### Example
+```python
+from py_librus_api import Librus
+from threading import Thread # <-- Note that there is new import!
+
+# Log in as always
+librus = Librus()
+librus.login(username, password)
+
+threads = []
+
+# Get lucky number
+a = Thread(target=librus.get_lucky_number)
+a.start()
+threads.append(a)
+
+# Get grades
+b = Thread(target=librus.get_grades)
+b.start()
+threads.append(b)
+
+for thread in threads:
+    thread.join()
+```
+### Comparison
+I compared above code (+2 other functions) with regular execution without `threading`.<br>
+**Note: Logging in time is not counted.**<br>
+**Note 2: Time is measured in seconds [s].**
+#### API before and after threading update
+```
+[WITHOUT THREADING AT ALL]: 6.034927606582642
+[AFTER THREADING UPDATE]: 4.9559431076049805
+```
+As you can see, it's not the best improvement, but still it's something isn't it?
+#### API after threading update vs even more threaded code (example above)
+```
+[AFTER THREADING UPDATE]: 4.9559431076049805
+[AFTER THREADING UPDATE + EVEN MORE THREADING (example)]: 1.9219775199890137
+```
+Now that's what we're talking about. If you want the best speed, you have to use `threading` by yourself and of course the newest version of this API!

@@ -1,5 +1,5 @@
 import requests
-import sys
+from threading import Thread
 
 
 class Librus:
@@ -48,9 +48,9 @@ class Librus:
         self.attendances_types = None
 
     # Checks data and decides method of login
-    def login(self, login, password):
+    def login(self, username, password):
         if not self.logged_in:
-            if login is None or password is None or login == "" or password == "":
+            if login is None or password is None or username == "" or password == "":
                 return False
             else:
                 """Make connection to the host and get auth token"""
@@ -58,7 +58,7 @@ class Librus:
                 loop = 0
                 while r is None:
                     try:
-                        r = requests.post(self.host + "OAuth/Token", data={"username": login,
+                        r = requests.post(self.host + "OAuth/Token", data={"username": username,
                                                                            "password": password,
                                                                            "librus_long_term_token": "1",
                                                                            "grant_type": "password"},
@@ -95,21 +95,33 @@ class Librus:
             r = self.get_data("LuckyNumbers")
             self.lucky_number = r.json()["LuckyNumber"]["LuckyNumber"]
 
-            return self.lucky_number
-
         return self.lucky_number
 
     def get_grades(self):
         r = self.get_data("Grades")
 
-        if not self.subjects:
-            self.get_subjects()
+        threads = []
+        if self.subjects is None:
+            sub_thread = Thread(target=self.get_subjects)
+            sub_thread.start()
+            threads.append(sub_thread)
+            # self.get_subjects()
 
-        if not self.categories:
-            self.get_categories()
+        if self.categories is None:
+            cat_thread = Thread(target=self.get_categories)
+            cat_thread.start()
+            threads.append(cat_thread)
+            # self.get_categories()
 
-        if not self.teachers:
-            self.get_teachers()
+        if self.teachers is None:
+            # self.get_teachers()
+            teachers_thread = Thread(target=self.get_teachers)
+            teachers_thread.start()
+            threads.append(teachers_thread)
+
+        # Join threads
+        for thread in threads:
+            thread.join()
 
         if self.grades is None:
             self.grades = {i: [] for i in self.subjects.values()}
@@ -208,17 +220,23 @@ class Librus:
         return self.school_free_days
 
     def get_teacher_free_days(self):
-        if self.teachers is None:
-            self.get_teachers()
-
-        if self.teacher_free_days_types is None:
-            r = self.get_data("TeacherFreeDays/Types")
-
-            self.teacher_free_days_types = {
-                i["Id"]: i["Name"] for i in r.json()["Types"]
-            }
-
         if self.teacher_free_days is None:
+            threads = []
+
+            if self.teachers is None:
+                # self.get_teachers()
+                teachers_thread = Thread(target=self.get_teachers)
+                teachers_thread.start()
+                threads.append(teachers_thread)
+
+            if self.teacher_free_days_types is None:
+                teachers_fd_types_thread = Thread(target=self.get_teacher_free_days_types)
+                teachers_fd_types_thread.start()
+                threads.append(teachers_fd_types_thread)
+
+            for thread in threads:
+                thread.join()
+
             r = self.get_data("TeacherFreeDays")
 
             self.teacher_free_days = r.json()["TeacherFreeDays"]
@@ -230,12 +248,30 @@ class Librus:
 
         return self.teacher_free_days
 
+    def get_teacher_free_days_types(self):
+        if self.teacher_free_days_types is None:
+            r = self.get_data("TeacherFreeDays/Types")
+
+            self.teacher_free_days_types = {
+                i["Id"]: i["Name"] for i in r.json()["Types"]
+            }
+
+        return self.teacher_free_days_types
+
     def get_lessons(self):
         if self.lessons is None:
+            threads = []
+
             if self.subjects is None:
-                self.get_subjects()
+                subject_thread = Thread(target=self.get_subjects)
+                subject_thread.start()
+                threads.append(subject_thread)
+                # self.get_subjects()
 
             if self.teachers is None:
+                teacher_thread = Thread(target=self.get_teachers)
+                teacher_thread.start()
+                threads.append(teacher_thread)
                 self.get_teachers()
 
             r = self.get_data("Lessons")
@@ -250,23 +286,45 @@ class Librus:
 
         return self.lessons
 
+    def get_attendances_types(self):
+        if self.attendances_types is None:
+            r = self.get_data("Attendances/Types")
+
+            self.attendances_types = {
+                i["Id"]: {
+                    "Name": i["Name"],
+                    "Short": i["Short"],
+                    "Standard": i["Standard"],
+                    "IsPresenceKind": i["IsPresenceKind"],
+                    "Order": i["Order"]
+                } for i in r.json()["Types"]
+            }
+
+        return self.attendances_types
+
     def get_attendances(self):
         if self.attendances is None:
-            if self.attendances_types is None:
-                r = self.get_data("Attendances/Types")
+            threads = []
 
-                self.attendances_types = {
-                    i["Id"]: {
-                        "Name": i["Name"],
-                        "Short": i["Short"],
-                        "Standard": i["Standard"],
-                        "IsPresenceKind": i["IsPresenceKind"],
-                        "Order": i["Order"]
-                    } for i in r.json()["Types"]
-                }
+            if self.attendances_types is None:
+                att_types_thread = Thread(target=self.get_attendances_types)
+                att_types_thread.start()
+                threads.append(att_types_thread)
 
             if self.lessons is None:
-                self.get_lessons()
+                less_thread = Thread(target=self.get_lessons)
+                less_thread.start()
+                threads.append(less_thread)
+                # self.get_lessons()
+
+            if self.teachers is None:
+                teachers_thread = Thread(target=self.get_teachers)
+                teachers_thread.start()
+                threads.append(teachers_thread)
+
+            # Join threads
+            for thread in threads:
+                thread.join()
 
             self.attendances = self.get_data("Attendances").json()["Attendances"]
 
